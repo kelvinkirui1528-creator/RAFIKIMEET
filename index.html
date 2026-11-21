@@ -70,6 +70,10 @@
     .filter-bw { filter: grayscale(1) contrast(1.2); }
     .filter-cyberpunk { filter: hue-rotate(320deg) contrast(1.15) saturate(1.4); }
     .filter-vivid { filter: saturate(1.6) contrast(1.08); }
+    .filter-vintage { filter: sepia(0.4) contrast(0.95) brightness(1.05) hue-rotate(-15deg); }
+    .filter-emerald { filter: hue-rotate(85deg) contrast(1.15) saturate(1.3); }
+    .filter-noir { filter: grayscale(1) contrast(1.6) brightness(0.9); }
+    .filter-sunset { filter: sepia(0.3) saturate(1.8) hue-rotate(330deg) brightness(1.05); }
     
     /* Hardware-Accelerated Crisp Video Rendering */
     video {
@@ -221,6 +225,23 @@
       'Cooking', 'Fitness', 'Art', 'Gaming', 'Books', 
       'Movies', 'Coffee', 'Basketball', 'Yoga', 'Podcasts',
       'Writing', 'Design', 'Cycling', 'DIY', 'Cinema'
+    ];
+
+    const AUDIO_VIBE_BADGES = [
+      { id: 'latenight', label: '🎧 Late-Night Talks', desc: 'Active after dark for real conversations' },
+      { id: 'voicenotes', label: '🎙️ Voice Notes Over Text', desc: 'Prefers audio & spontaneous calls' },
+      { id: 'musiclover', label: '🎵 Music Explorer', desc: 'Shares playlists and track recommendations' },
+      { id: 'chill', label: '☕ Chill & Casual', desc: 'No pressure, easy-going chats' },
+      { id: 'highenergy', label: '⚡ Spontaneous Vibe', desc: 'Ready for quick video calls anytime' },
+      { id: 'deeptalks', label: '🌍 Deep Convos Only', desc: 'Skips the small talk for meaningful topics' }
+    ];
+
+    const APP_THEMES = [
+      { id: 'rose', name: 'Rose Flame', primary: '#f43f5e', border: 'border-rose-500', bg: 'bg-rose-500', glow: 'shadow-rose-500/30' },
+      { id: 'violet', name: 'Cyber Violet', primary: '#a855f7', border: 'border-purple-500', bg: 'bg-purple-600', glow: 'shadow-purple-500/30' },
+      { id: 'ocean', name: 'Ocean Cyan', primary: '#06b6d4', border: 'border-cyan-500', bg: 'bg-cyan-500', glow: 'shadow-cyan-500/30' },
+      { id: 'emerald', name: 'Emerald Pulse', primary: '#10b981', border: 'border-emerald-500', bg: 'bg-emerald-500', glow: 'shadow-emerald-500/30' },
+      { id: 'amber', name: 'Sunset Amber', primary: '#f59e0b', border: 'border-amber-500', bg: 'bg-amber-500', glow: 'shadow-amber-500/30' }
     ];
 
     const QUICK_ICEBREAKERS = [
@@ -454,6 +475,10 @@
 
       // App state
       const [currentTab, setCurrentTab] = useState('discover');
+      const [appTheme, setAppTheme] = useState(() => {
+        try { return localStorage.getItem('mf_app_theme') || 'rose'; } catch(e) { return 'rose'; }
+      });
+      const [editVibeBadge, setEditVibeBadge] = useState(currentUser?.vibeBadge || '🎧 Late-Night Talks');
       const [profiles, setProfiles] = useState(() => {
         try {
           const cached = localStorage.getItem('mf_community_profiles');
@@ -798,7 +823,7 @@
 
             // Detect incoming video call trigger message
             if (isForMe && incoming.text && incoming.text.includes('Incoming Video Call')) {
-              const callerProf = profiles.find(p => p.id === incoming.sender_id || p.username.toLowerCase() === String(incoming.sender_id).toLowerCase());
+              const callerProf = profiles.find(p => p.id === incoming.sender_id || String(p.username || '').toLowerCase() === String(incoming.sender_id).toLowerCase());
               setIncomingCall({
                 callId: `call_${incoming.id || Date.now()}`,
                 callerId: incoming.sender_id,
@@ -856,7 +881,7 @@
               );
 
               if (!isChattingWithSender) {
-                const senderProf = profiles.find(p => p.id === incoming.sender_id || p.username.toLowerCase() === String(incoming.sender_id).toLowerCase());
+                const senderProf = profiles.find(p => p.id === incoming.sender_id || String(p.username || '').toLowerCase() === String(incoming.sender_id).toLowerCase());
                 const notif = {
                   senderId: incoming.sender_id,
                   senderUsername: senderProf?.username || incoming.sender_id,
@@ -2416,7 +2441,7 @@
 
       // Dynamic sorting for Direct Messages: the user who messaged most recently appears first at the top
       const sortedChatProfiles = useMemo(() => {
-        const others = profiles.filter(p => p.bio !== '[DELETED]' && (!currentUser || (p.id !== currentUser.id && p.username.toLowerCase() !== currentUser.username.toLowerCase())));
+        const others = profiles.filter(p => p.bio !== '[DELETED]' && (!currentUser || (p.id !== currentUser.id && String(p.username || '').toLowerCase() !== String(currentUser.username || '').toLowerCase())));
 
         return [...others].sort((a, b) => {
           const msgsA = chatMessages[a.id] || chatMessages[a.username] || [];
@@ -3279,7 +3304,7 @@
 
                   <div className="flex-1 overflow-y-auto divide-y divide-slate-800/60 pb-28 md:pb-4">
                     {sortedChatProfiles.map(p => {
-                      const isSelected = activeChatUser?.id === p.id || (activeChatUser?.username && activeChatUser.username.toLowerCase() === p.username.toLowerCase());
+                      const isSelected = activeChatUser?.id === p.id || (activeChatUser?.username && String(activeChatUser.username).toLowerCase() === String(p.username || '').toLowerCase());
                       const userMsgs = chatMessages[p.id] || chatMessages[p.username] || [];
                       const lastMsg = userMsgs[userMsgs.length - 1];
 
@@ -3925,6 +3950,128 @@
                   </div>
                 </div>
 
+                {/* Profile Accent Theme & Voice Vibe Customization */}
+                <div className="bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-xl space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-700/80">
+                    <div>
+                      <h4 className="font-bold text-white text-base flex items-center gap-2">
+                        <span>🎨</span>
+                        <span>Custom Profile Theme & Accents</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400">Choose your visual color theme across buttons, glows, and badges.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                    {APP_THEMES.map(th => {
+                      const isSel = appTheme === th.id;
+                      return (
+                        <button
+                          key={th.id}
+                          type="button"
+                          onClick={() => {
+                            setAppTheme(th.id);
+                            try { localStorage.setItem('mf_app_theme', th.id); } catch(e){}
+                            updateUserProfile({ theme: th.id });
+                          }}
+                          className={`p-3 rounded-2xl border text-center transition flex flex-col items-center gap-2 ${
+                            isSel
+                              ? `${th.border} bg-slate-900/90 shadow-lg ${th.glow} ring-2 ring-offset-2 ring-offset-slate-900 ring-rose-500`
+                              : 'border-slate-700/70 bg-slate-900/50 hover:bg-slate-900 text-slate-300'
+                          }`}
+                        >
+                          <span className={`w-6 h-6 rounded-full ${th.bg} shadow-md inline-block`}></span>
+                          <span className="text-xs font-bold text-white">{th.name}</span>
+                          {isSel && <span className="text-[10px] text-rose-400 font-extrabold">Active</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Audio & Conversation Vibe Badge */}
+                  <div className="pt-4 border-t border-slate-700/70 space-y-3">
+                    <div>
+                      <h5 className="font-bold text-white text-sm flex items-center gap-2">
+                        <span>🎙️</span>
+                        <span>Your Audio & Conversation Vibe</span>
+                      </h5>
+                      <p className="text-[11px] text-slate-400">Featured badge displayed on your Discover card so friends know how you like to connect.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {AUDIO_VIBE_BADGES.map(vb => {
+                        const isCur = (currentUser?.vibeBadge || editVibeBadge) === vb.label;
+                        return (
+                          <div
+                            key={vb.id}
+                            onClick={() => {
+                              setEditVibeBadge(vb.label);
+                              updateUserProfile({ vibeBadge: vb.label });
+                            }}
+                            className={`p-3 rounded-2xl border cursor-pointer transition flex items-center gap-3 ${
+                              isCur
+                                ? 'border-rose-500 bg-rose-500/10 text-white shadow-md shadow-rose-500/20'
+                                : 'border-slate-700/60 bg-slate-900/60 hover:bg-slate-900 text-slate-300'
+                            }`}
+                          >
+                            <span className="text-xl">{vb.label.split(' ')[0]}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-white truncate">{vb.label}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{vb.desc}</p>
+                            </div>
+                            {isCur && <span className="text-rose-400 font-bold text-xs">✓</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Sound FX & Haptic Audio Test */}
+                  <div className="pt-4 border-t border-slate-700/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-900 border border-slate-700/60">
+                    <div>
+                      <p className="text-xs font-bold text-white flex items-center gap-2">
+                        <span>🔔</span>
+                        <span>Sound & Haptic Feedback</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${soundEnabled ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'}`}>
+                          {soundEnabled ? 'Active' : 'Muted'}
+                        </span>
+                      </p>
+                      <p className="text-[11px] text-slate-400">Play instant dings for incoming chat and realistic ringtones for live video calls.</p>
+                    </div>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (soundEnabled) {
+                            SoundFX.playDing();
+                            if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                              navigator.vibrate([100, 50, 100]);
+                            }
+                          } else {
+                            setSoundEnabled(true);
+                            setTimeout(() => SoundFX.playDing(), 100);
+                          }
+                        }}
+                        className="flex-1 sm:flex-none px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition flex items-center justify-center gap-1.5"
+                      >
+                        <span>🔊</span>
+                        <span>Test Sound</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSoundEnabled(!soundEnabled)}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                          soundEnabled
+                            ? 'bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40'
+                            : 'bg-slate-700 text-slate-300'
+                        }`}
+                      >
+                        <span>{soundEnabled ? '🔔 Mute' : '🔕 Unmute'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Privacy & Settings */}
                 <div className="bg-slate-800 border border-slate-700 rounded-3xl p-6 shadow-xl space-y-4">
                   <h4 className="font-bold text-white text-base">Privacy & Visibility</h4>
@@ -4471,7 +4618,7 @@
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button
                   onClick={() => {
-                    const target = profiles.find(p => p.id === messageNotification.senderId || p.username.toLowerCase() === String(messageNotification.senderUsername).toLowerCase());
+                    const target = profiles.find(p => p.id === messageNotification.senderId || String(p.username || '').toLowerCase() === String(messageNotification.senderUsername).toLowerCase());
                     if (target) {
                       setActiveChatUser(target);
                       setUnreadCount(0);
