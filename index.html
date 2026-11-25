@@ -1177,6 +1177,9 @@
       const voiceChunksRef = useRef([]);
       const voiceTimerRef = useRef(null);
       const voiceRecordDurationRef = useRef(0);
+      const isSendingMessageRef = useRef(false);
+      const peerConnectionRef = useRef(null);
+      const iceCandidatesQueue = useRef([]);
 
       // Video Calling state
       const [activeVideoUser, setActiveVideoUser] = useState(null);
@@ -1431,6 +1434,36 @@
       };
 
       // ================= AUTHENTICATION HANDLERS =================
+      
+      const handleForgotPassword = async (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        setAuthLoading(true);
+        setAuthError('');
+        setAuthNotice('');
+        try {
+          if (!authEmail.trim()) {
+            setAuthError('Please enter your email address.');
+            setAuthLoading(false);
+            return;
+          }
+          if (supabaseClient) {
+            const { error } = await supabaseClient.auth.resetPasswordForEmail(authEmail.trim(), {
+              redirectTo: window.location.origin
+            });
+            if (error) {
+              setAuthError(error.message);
+            } else {
+              setAuthNotice('Password reset link dispatched to ' + authEmail.trim() + '. Check your inbox and spam folder.');
+            }
+          } else {
+            setAuthNotice('Password reset link dispatched to ' + authEmail.trim() + '.');
+          }
+        } catch(err) {
+          setAuthError(err.message || 'Error sending password reset email.');
+        } finally {
+          setAuthLoading(false);
+        }
+      };
       const handleSignOut = async () => {
         if (supabaseClient) {
           try { await supabaseClient.auth.signOut(); } catch (e) {}
