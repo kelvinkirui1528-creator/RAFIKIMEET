@@ -559,6 +559,75 @@
 
       // App state
       const [currentTab, setCurrentTab] = useState('discover');
+      const [showLocationModal, setShowLocationModal] = useState(false);
+      const [manualCityInput, setManualCityInput] = useState(currentUser?.city || '');
+      const [locationStatusMsg, setLocationStatusMsg] = useState('');
+      const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+
+      const handleDetectGPSLocation = () => {
+        if (typeof navigator === 'undefined' || !navigator.geolocation) {
+          setLocationStatusMsg('Geolocation is not supported by your browser.');
+          return;
+        }
+        setIsDetectingLocation(true);
+        setLocationStatusMsg('');
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setIsDetectingLocation(false);
+            const lat = Math.round(pos.coords.latitude * 100) / 100;
+            const lng = Math.round(pos.coords.longitude * 100) / 100;
+            updateUserProfile({
+              shareLocation: true,
+              latitude: lat,
+              longitude: lng,
+              distanceKm: 3
+            });
+            setLocationStatusMsg('✓ Location updated via GPS (~1 km privacy grid)!');
+            setTimeout(() => {
+              setShowLocationModal(false);
+              setLocationStatusMsg('');
+            }, 1400);
+          },
+          (err) => {
+            setIsDetectingLocation(false);
+            setLocationStatusMsg('Location permission denied or unavailable. Enter your city below.');
+          },
+          { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+        );
+      };
+
+      const handleSaveManualCity = () => {
+        const city = manualCityInput.trim();
+        if (!city) return;
+        updateUserProfile({
+          shareLocation: true,
+          city: city,
+          approxLocation: { city: city },
+          distanceKm: 5
+        });
+        setLocationStatusMsg(`✓ Location set to ${city}!`);
+        setTimeout(() => {
+          setShowLocationModal(false);
+          setLocationStatusMsg('');
+        }, 1400);
+      };
+
+      const handleRemoveLocation = () => {
+        updateUserProfile({
+          shareLocation: false,
+          city: '',
+          approxLocation: null,
+          latitude: null,
+          longitude: null,
+          distanceKm: undefined
+        });
+        setLocationStatusMsg('✓ Location removed. Distance is hidden.');
+        setTimeout(() => {
+          setShowLocationModal(false);
+          setLocationStatusMsg('');
+        }, 1400);
+      };
+
       const [canInstallPWA, setCanInstallPWA] = useState(false);
       const [showIOSInstallGuide, setShowIOSInstallGuide] = useState(false);
 
@@ -2640,6 +2709,42 @@
               </div>
             </header>
 
+          {/* ================= UNIFIED TOP NAVIGATION BAR ================= */}
+          <nav className={`bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 z-30 select-none shadow-md transition-all ${currentTab === "chat" && activeChatUser ? "hidden md:block" : "block"}`}>
+            <div className="max-w-2xl w-full mx-auto flex items-center justify-around py-1.5 sm:py-2 px-2">
+              {[
+                { id: 'discover', label: 'Discover', icon: '🔍' },
+                { id: 'chat', label: 'Messages', icon: '💬', badge: unreadCount > 0 ? unreadCount : null },
+                { id: 'video', label: 'Live Video', icon: '📹' },
+                { id: 'saved', label: 'Saved', icon: '❤️', badge: savedIds.length > 0 ? savedIds.length : null },
+                { id: 'account', label: currentUser ? 'Account' : 'Log In', icon: '👤' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    if (tab.id === 'chat') setUnreadCount(0);
+                    setCurrentTab(tab.id);
+                  }}
+                  className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-1.5 px-3 py-1.5 rounded-2xl transition duration-200 relative ${
+                    currentTab === tab.id
+                      ? 'text-rose-500 font-bold bg-rose-500/15 scale-105 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                >
+                  <span className="text-lg sm:text-xl relative">
+                    {tab.icon}
+                    {tab.badge && (
+                      <span className="absolute -top-1 -right-2 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full border border-slate-900 shadow">
+                        {tab.badge}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-[10px] sm:text-xs font-semibold">{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </nav>
+
             {/* Main Auth Hero Form Container */}
             <main className="flex-1 flex items-center justify-center p-4 sm:p-6 z-10 my-4 sm:my-8">
               <div className="bg-slate-900/95 border border-slate-800/90 w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-5">
@@ -3174,11 +3279,11 @@
           </header>
 
           {/* MAIN VIEW CONTAINER */}
-          <main className="flex-1 flex flex-col overflow-hidden pb-20">
+          <main className="flex-1 flex flex-col overflow-hidden">
 
             {/* ================= 1. DISCOVER TAB ================= */}
             {currentTab === 'discover' && (
-              <div className="flex-1 flex flex-col h-full bg-slate-900 overflow-y-auto pb-28 sm:pb-32">
+              <div className="flex-1 flex flex-col h-full bg-slate-900 overflow-y-auto pb-10 sm:pb-14">
                 {/* Taglines Hero Banner */}
                 <div className="bg-gradient-to-r from-rose-950/40 via-slate-900 to-slate-900 border-b border-slate-800/80 px-4 py-2.5">
                   <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-slate-300 gap-1 text-center sm:text-left">
@@ -3206,6 +3311,19 @@
                         </button>
                       )}
                     </div>
+
+                    {/* Location Quick Update Button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowLocationModal(true)}
+                      className={`px-3 py-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
+                        currentUser?.shareLocation ? 'bg-rose-500/15 text-rose-300 border-rose-500/40 shadow-sm' : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'
+                      }`}
+                      title="Update Your Location"
+                    >
+                      <span>📍</span>
+                      <span className="hidden sm:inline">{currentUser?.city ? currentUser.city : (currentUser?.shareLocation ? 'Near Me' : 'Location')}</span>
+                    </button>
 
                     <button
                       onClick={() => setShowFilterDrawer(!showFilterDrawer)}
@@ -3254,9 +3372,18 @@
                         </div>
 
                         <div>
-                          <label className="block text-slate-400 font-semibold mb-1">
-                            Max Distance: {filterMaxDistance >= 100 ? 'Any distance' : `Within ${filterMaxDistance} km`}
-                          </label>
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="text-slate-400 font-semibold">
+                              Max Distance: {filterMaxDistance >= 100 ? 'Any distance' : `Within ${filterMaxDistance} km`}
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setShowLocationModal(true)}
+                              className="text-rose-400 hover:text-rose-300 font-bold text-[11px] flex items-center gap-1 hover:underline"
+                            >
+                              <span>📍 Update</span>
+                            </button>
+                          </div>
                           <input
                             type="range" min="5" max="100" step="5" value={filterMaxDistance}
                             onChange={e => setFilterMaxDistance(Number(e.target.value))}
@@ -3684,7 +3811,7 @@
 
             {/* ================= 3. LIVE VIDEO TAB ================= */}
             {currentTab === 'video' && (
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-4xl mx-auto w-full space-y-6 pb-28 sm:pb-32">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-4xl mx-auto w-full space-y-6 pb-10 sm:pb-14">
                 {/* Random Video Match Hero Card */}
                 <div className="bg-slate-800/90 border border-slate-700 rounded-3xl p-6 sm:p-8 text-center shadow-xl relative overflow-hidden">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-rose-500 to-rose-400 flex items-center justify-center text-3xl text-white mx-auto mb-4 shadow-lg shadow-rose-500/30">
@@ -3749,7 +3876,7 @@
 
             {/* ================= 4. SAVED PEOPLE TAB ================= */}
             {currentTab === 'saved' && (
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-5xl mx-auto w-full pb-28 sm:pb-32">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-5xl mx-auto w-full pb-10 sm:pb-14">
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
                   <div>
                     <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
@@ -3814,7 +3941,7 @@
 
             {/* ================= 5. ACCOUNT SETTINGS TAB ================= */}
             {currentTab === 'account' && (
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-2xl mx-auto w-full space-y-5 pb-28 sm:pb-32">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-2xl mx-auto w-full space-y-5 pb-10 sm:pb-14">
                 {!currentUser ? (
                   <div className="bg-slate-800 border border-slate-700 rounded-3xl p-8 shadow-2xl text-center space-y-6">
                     <div className="w-20 h-20 mx-auto rounded-3xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-4xl shadow-lg shadow-rose-500/20">
@@ -5610,41 +5737,7 @@
             </div>
           )}
 
-          {/* ================= UNIFIED BOTTOM NAVIGATION DOCK (ALL SCREENS) ================= */}
-          <nav className={`fixed bottom-0 inset-x-0 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800 z-40 select-none shadow-2xl safe-pb ${currentTab === "chat" && activeChatUser ? "hidden md:block" : "block"}`}>
-            <div className="max-w-2xl w-full mx-auto flex items-center justify-around py-1.5 sm:py-2.5 px-2">
-              {[
-                { id: 'discover', label: 'Discover', icon: '🔍' },
-                { id: 'chat', label: 'Messages', icon: '💬', badge: unreadCount > 0 ? unreadCount : null },
-                { id: 'video', label: 'Live Video', icon: '📹' },
-                { id: 'saved', label: 'Saved', icon: '❤️', badge: savedIds.length > 0 ? savedIds.length : null },
-                { id: 'account', label: currentUser ? 'Account' : 'Log In', icon: '👤' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    if (tab.id === 'chat') setUnreadCount(0);
-                    setCurrentTab(tab.id);
-                  }}
-                  className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-2xl transition duration-200 relative ${
-                    currentTab === tab.id
-                      ? 'text-rose-500 font-bold bg-rose-500/15 scale-105'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                  }`}
-                >
-                  <span className="text-xl sm:text-2xl relative">
-                    {tab.icon}
-                    {tab.badge && (
-                      <span className="absolute -top-1 -right-2.5 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full border border-slate-900 shadow">
-                        {tab.badge}
-                      </span>
-                    )}
-                  </span>
-                  <span className="text-[10px] sm:text-xs font-semibold">{tab.label}</span>
-                </button>
-              ))}
-            </div>
-          </nav>
+          
         </div>
       );
     }
